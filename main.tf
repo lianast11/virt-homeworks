@@ -5,7 +5,7 @@ provider "aws" {
  terraform {
    backend "s3" {
      bucket = "test-bucket-stage"
-     key = "base/test/terraform_aws.tfstate"
+     key = "base/test1/terraform_aws.tfstate"
      region = "us-west-2"
      dynamodb_table = "test-db"
      encrypt = true
