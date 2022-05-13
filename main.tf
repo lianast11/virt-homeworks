@@ -1,17 +1,6 @@
 provider "aws" {
-   region = "us-west-2"
- }
- 
- terraform {
-   backend "s3" {
-     bucket = "test-bucket-stage"
-     key = "base/test1/terraform_aws.tfstate"
-     region = "us-west-2"
-     dynamodb_table = "test-db"
-     encrypt = true
-   }
- }
- 
+ region = "us-west-2"
+}
 data "aws_ami" "ubuntu" {
   most_recent = true
 
@@ -28,41 +17,52 @@ data "aws_ami" "ubuntu" {
   owners = ["099720109477"] # Canonical
 }
 
-locals { 
-  web_instance_type_map = {
-    stage = "t3.micro"
-    prod = "t3.large" 
-  }
-}
-
-locals { 
-  web_instance_count_map = {
-    stage = 1
-    prod = 2 
-  }
-}
 resource "aws_instance" "web" {
-  ami = data.aws_ami.ubuntu.id
-  instance_type = local.web_instance_type_map[terraform.workspace]
-  count = local.web_instance_count_map[terraform.workspace]
-lifecycle { 
-    create_before_destroy = true 
+  ami           = data.aws_ami.ubuntu.id
+  instance_type = "t3.micro"
+
+  tags = {
+    Name = "HelloWorld"
   }
 }
 
-locals {
-  instance_ids = toset([
-    "instance-abcdef",
-    "instance-012345",
-  ])
+resource "aws_vpc" "my_vpc" {
+  cidr_block = "172.16.0.0/16"
+
+  tags = {
+    Name = "tf-example"
+  }
 }
 
-resource "aws_instance" "server" {
-  for_each = local.instance_ids
+resource "aws_subnet" "my_subnet" {
+  vpc_id            = aws_vpc.my_vpc.id
+  cidr_block        = "172.16.10.0/24"
+  availability_zone = "us-west-2a"
 
-  ami           = data.aws_ami.ubuntu.id
-  instance_type = local.web_instance_type_map[terraform.workspace]
   tags = {
-    Name = "Server ${each.key}"
+    Name = "tf-example"
+  }
+}
+
+resource "aws_network_interface" "foo" {
+  subnet_id   = aws_subnet.my_subnet.id
+  private_ips = ["172.16.10.100"]
+
+  tags = {
+    Name = "primary_network_interface"
+  }
+}
+
+resource "aws_instance" "foo" {
+  ami           = "ami-005e54dee72cc1d00" # us-west-2
+  instance_type = "t2.micro"
+
+  network_interface {
+    network_interface_id = aws_network_interface.foo.id
+    device_index         = 0
+  }
+
+  credit_specification {
+    cpu_credits = "unlimited"
   }
 }
